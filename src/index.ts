@@ -12,7 +12,7 @@ const app = express();
 // Middleware
 app.use(cors(
   {
-    origin: `${process.env.CLIENT_URL}` || 'https://holodniypartner.ru ', // Разрешаем запросы только с этого домена
+    origin: `${process.env.CLIENT_URL}` || 'https://holodniypartner.ru' || 'https://conditioners-plum.vercel.app/', // Разрешаем запросы только с этого домена
     methods: ['POST'], // Разрешаем только POST-запросы
     credentials: true,
   }
