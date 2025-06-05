@@ -9,14 +9,43 @@ export interface PhoneRequest {
 
 const app = express();
 
+const allowedOrigins = [
+  'https://holodniypartner.ru',
+  'https://conditioners-plum.vercel.app'
+];
+
 // Middleware
-app.use(cors(
-  {
-    origin: `${process.env.CLIENT_URL}` || 'https://holodniypartner.ru/' || 'https://holodniypartner.ru' || 'https://conditioners-plum.vercel.app/', // Разрешаем запросы только с этого домена
-    methods: ['POST'], // Разрешаем только POST-запросы
-    credentials: true,
-  }
-));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed'));
+    }
+  },
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
+}));
+
+// @FIXME временно комментирую этот вариант
+// app.use(cors({
+//   origin: (origin, callback) => {
+//     const allowed = [
+//       'https://holodniypartner.ru',
+//       'https://conditioners-plum.vercel.app'
+//     ];
+//
+//     if (!origin || allowed.includes(origin.replace(/\/$/, ''))) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   methods: ['POST', 'OPTIONS'],
+//   credentials: true
+// }));
 app.use(express.json());
 
 // Роут для обработки номера телефона
@@ -31,6 +60,7 @@ app.post('/api/feedback', async (req: any, res: any) => {
 
     // Отправляем email
     // await sendPhoneEmail(phone);
+    console.log('test phone = ', phone);
 
     await telegramSendMessage(phone);
 

@@ -32,3 +32,5 @@ npm install pm2 -g
 pm2 start dist/server.js --name "my-app"
 pm2 save
 pm2 startup
+
+бэк называется server в pm2
