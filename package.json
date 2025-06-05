@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "start": "node build/index.js",
-    "pmstart": "pm2 start build/index.js --name server"
+    "start:prod": "pm2 start build/index.js --name server"
   },
   "keywords": [],
   "author": "",
