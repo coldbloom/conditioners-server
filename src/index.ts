@@ -14,20 +14,27 @@ const allowedOrigins = [
   'https://conditioners-plum.vercel.app'
 ];
 
-// Middleware
+// Разрешает все домены и методы
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin);
-      callback(new Error('Not allowed'));
-    }
-  },
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
+  origin: true,  // Автоматически разрешает текущий origin
+  methods: ['POST'],
   credentials: true
 }));
+
+// Middleware
+// app.use(cors({
+//   origin: (origin, callback) => {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       console.log('Blocked by CORS:', origin);
+//       callback(new Error('Not allowed'));
+//     }
+//   },
+//   methods: ['POST', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type'],
+//   credentials: true
+// }));
 
 // @FIXME временно комментирую этот вариант
 // app.use(cors({
