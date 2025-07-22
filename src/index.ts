@@ -59,7 +59,7 @@ app.use(express.json());
 app.post('/api/feedback', async (req: any, res: any) => {
   try {
     const { phone } = req.body as PhoneRequest;
-    console.log(phone);
+    const origin = req.headers.origin;
 
     if (!phone) {
       return res.status(400).json({ error: 'Phone number is required' });
@@ -67,9 +67,21 @@ app.post('/api/feedback', async (req: any, res: any) => {
 
     // Отправляем email
     // await sendPhoneEmail(phone);
-    console.log('test phone = ', phone);
 
-    await telegramSendMessage(phone);
+    if (origin === process.env.FREEZE_MASTER) {
+      await telegramSendMessage(
+        phone,
+        process.env.FREEZE_MASTER_TELEGRAM_TOKEN as string,
+        process.env.FREEZE_MASTER_CHAT_ID as string
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Request processed successfully'
+      });
+    }
+
+    await telegramSendMessage(phone, process.env.TELEGRAM_TOKEN as string, process.env.TELEGRAM_GROUP_CHAT_ID as string);
 
     return res.status(200).json({
       success: true,

@@ -12,13 +12,17 @@ interface TelegramResponse {
   };
 }
 
-export const telegramSendMessage = async (phone: string) => {
+export const telegramSendMessage = async (
+  phone: string,
+  telegramToken: string,
+  telegramChatId: string
+) => {
   try {
     const text = `📞 <b>Новый запрос</b>\nТелефон: <code>${phone}</code>\nДата: ${new Date().toLocaleString('ru-RU')}`;
     const response: TelegramResponse = await axios.post(
-      `https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`,
+      `https://api.telegram.org/bot${telegramToken}/sendMessage`,
       {
-        chat_id: process.env.TELEGRAM_GROUP_CHAT_ID,
+        chat_id: telegramChatId,
         text: text,
         parse_mode: 'HTML'
       }
