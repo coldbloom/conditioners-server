@@ -3,62 +3,39 @@ import cors from 'cors';
 import { config } from './config';
 import { telegramSendMessage } from "./telegram-send-message";
 
-export interface PhoneRequest {
+export interface Request {
   phone: string;
+  name?: string
+  message?: string;
 }
 
 const app = express();
 
 const allowedOrigins = [
-  'https://holodniypartner.ru',
-  'https://conditioners-plum.vercel.app'
-];
+  process.env.FREEZE_MASTER,
+  process.env.CLIENT_URL,
+  process.env.MEDTAXI_URL,
+].filter((origin): origin is string => Boolean(origin));
 
-// Разрешает все домены и методы
 app.use(cors({
-  origin: true,  // Автоматически разрешает текущий origin
-  methods: ['POST'],
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true,
 }));
-
-// Middleware
-// app.use(cors({
-//   origin: (origin, callback) => {
-//     if (!origin || allowedOrigins.includes(origin)) {
-//       callback(null, true);
-//     } else {
-//       console.log('Blocked by CORS:', origin);
-//       callback(new Error('Not allowed'));
-//     }
-//   },
-//   methods: ['POST', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type'],
-//   credentials: true
-// }));
-
-// @FIXME временно комментирую этот вариант
-// app.use(cors({
-//   origin: (origin, callback) => {
-//     const allowed = [
-//       'https://holodniypartner.ru',
-//       'https://conditioners-plum.vercel.app'
-//     ];
-//
-//     if (!origin || allowed.includes(origin.replace(/\/$/, ''))) {
-//       callback(null, true);
-//     } else {
-//       callback(new Error('Not allowed by CORS'));
-//     }
-//   },
-//   methods: ['POST', 'OPTIONS'],
-//   credentials: true
-// }));
 app.use(express.json());
 
 // Роут для обработки номера телефона
 app.post('/api/feedback', async (req: any, res: any) => {
   try {
-    const { phone } = req.body as PhoneRequest;
+    const { phone } = req.body;
     const origin = req.headers.origin;
 
     if (!phone) {
@@ -69,19 +46,31 @@ app.post('/api/feedback', async (req: any, res: any) => {
     // await sendPhoneEmail(phone);
 
     if (origin === process.env.FREEZE_MASTER) {
-      await telegramSendMessage(
-        phone,
-        process.env.FREEZE_MASTER_TELEGRAM_TOKEN as string,
-        process.env.FREEZE_MASTER_CHAT_ID as string
-      );
+      await telegramSendMessage({
+        formData: { phone },
+        telegramToken: process.env.FREEZE_MASTER_TELEGRAM_TOKEN as string,
+        telegramChatId: process.env.FREEZE_MASTER_CHAT_ID as string,
+      });
+    } else if (origin === process.env.CLIENT_URL) {
+      await telegramSendMessage({
+        formData: { phone },
+        telegramToken: process.env.TELEGRAM_TOKEN as string,
+        telegramChatId: process.env.TELEGRAM_GROUP_CHAT_ID as string,
+      });
+    } else if (origin === process.env.MEDTAXI_URL) {
+      const { name, message } = req.body;
 
-      return res.status(200).json({
-        success: true,
-        message: 'Request processed successfully'
+      if (!name) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
+
+      await telegramSendMessage({
+        formData: { phone, name, message },
+        telegramToken: process.env.FREEZE_MASTER_TELEGRAM_TOKEN as string,
+        telegramChatId: process.env.FREEZE_MASTER_CHAT_ID as string,
+        serviceFrom: process.env.MEDTAXI_URL,
       });
     }
-
-    await telegramSendMessage(phone, process.env.TELEGRAM_TOKEN as string, process.env.TELEGRAM_GROUP_CHAT_ID as string);
 
     return res.status(200).json({
       success: true,

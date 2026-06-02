@@ -12,13 +12,54 @@ interface TelegramResponse {
   };
 }
 
-export const telegramSendMessage = async (
-  phone: string,
+interface TelegramSendMessageProps {
+  formData: FormData;
   telegramToken: string,
   telegramChatId: string
-) => {
+  serviceFrom?: string,
+}
+
+interface FormData {
+  phone: string;
+  name?: string;
+  message?: string;
+}
+
+interface BuildMessageTextProps extends FormData {
+  serviceFrom?: string
+}
+
+const buildMessageText = ({ phone, name, message, serviceFrom }: BuildMessageTextProps): string => {
+  const lines = [
+    '📞 <b>Новый запрос</b>',
+    `Телефон: <code>${phone}</code>`,
+  ];
+
+  if (serviceFrom) {
+    lines.push(`Для сервиса: ${serviceFrom}`);
+  }
+
+  if (name) {
+    lines.push(`Имя: ${name}`);
+  }
+
+  if (message) {
+    lines.push(`Сообщение: ${message}`);
+  }
+
+  lines.push(`Дата: ${new Date().toLocaleString('ru-RU')}`);
+
+  return lines.join('\n');
+};
+
+export const telegramSendMessage = async ({
+  formData,
+  telegramToken,
+  telegramChatId,
+  serviceFrom,
+}: TelegramSendMessageProps) => {
   try {
-    const text = `📞 <b>Новый запрос</b>\nТелефон: <code>${phone}</code>\nДата: ${new Date().toLocaleString('ru-RU')}`;
+    const text = buildMessageText({ ...formData, serviceFrom });
     const response: TelegramResponse = await axios.post(
       `https://api.telegram.org/bot${telegramToken}/sendMessage`,
       {
