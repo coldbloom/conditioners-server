@@ -73,7 +73,15 @@ export const telegramSendMessage = async ({
       throw new Error(`Telegram API error: ${response.data.description}`);
     }
   } catch (error) {
-    console.error('Telegram sendMessage error:', error instanceof Error ? error.message : error);
-    throw error; // Пробрасываем ошибку дальше для обработки в роутере
+    if (axios.isAxiosError(error)) {
+      console.error('Telegram sendMessage error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+    } else {
+      console.error('Telegram sendMessage error:', error instanceof Error ? error.message : error);
+    }
+    throw error;
   }
 };
