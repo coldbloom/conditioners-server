@@ -82,12 +82,17 @@ const callbackUpdate = (
   },
 });
 
-const textUpdate = (updateId: number, text: string, replyTo?: number): TelegramUpdate => ({
+const textUpdate = (
+  updateId: number,
+  text: string,
+  replyTo?: number,
+  chatType = 'private',
+): TelegramUpdate => ({
   update_id: updateId,
   message: {
     message_id: 1_000 + updateId,
     text,
-    chat: { id: chatId, type: 'private' },
+    chat: { id: chatId, type: chatType },
     from: { id: userId },
     ...(replyTo ? { reply_to_message: { message_id: replyTo } } : {}),
   },
@@ -107,6 +112,31 @@ test('sends call-click notification with form button', async () => {
     bot.sent[0].options?.reply_markup?.inline_keyboard?.[0][0].callback_data,
     `medtax:start:${eventId}`,
   );
+});
+
+test('group prompts force a reply without an untargeted selective flag', async () => {
+  const bot = new FakeTelegramBot();
+  const conversation = new MedtaxiConversation(bot, { notificationChatId: chatId, now: () => now });
+
+  await conversation.notifyCallClick(click);
+  const notification = bot.sent[0].message;
+  notification.chat.type = 'supergroup';
+  await conversation.handleUpdate(callbackUpdate(1, 'start', `medtax:start:${eventId}`, notification));
+
+  const phonePrompt = bot.sent.at(-1);
+  assert.ok(phonePrompt);
+  assert.deepEqual(phonePrompt.options?.reply_markup, {
+    force_reply: true,
+    input_field_placeholder: '+7 978 123-45-67',
+  });
+
+  await conversation.handleUpdate(textUpdate(
+    2,
+    '8 (978) 123-45-67',
+    undefined,
+    'supergroup',
+  ));
+  assert.match(bot.sent.at(-1)?.text ?? '', /Откуда забрать пациента/);
 });
 
 test('walks through the form, validates input and renders a confirmed card', async () => {

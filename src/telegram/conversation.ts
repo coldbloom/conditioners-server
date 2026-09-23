@@ -87,7 +87,6 @@ const formatPrice = (value: number): string => new Intl.NumberFormat('ru-RU').fo
 
 const forceReply = (placeholder: string): TelegramReplyMarkup => ({
   force_reply: true,
-  selective: true,
   input_field_placeholder: placeholder,
 });
 
@@ -279,10 +278,13 @@ export class MedtaxiConversation {
       return;
     }
 
-    // В группе Telegram Privacy Mode доставляет ForceReply. Не принимаем случайные сообщения чата.
+    // Privacy Mode доставляет ForceReply как ответ. Если бот видит обычные сообщения
+    // (например, он администратор), принимаем их только из активной сессии оператора.
+    // Явный ответ на другое сообщение по-прежнему не относится к текущему вопросу.
     if (session.chatType !== 'private'
       && session.promptMessageId
-      && message.reply_to_message?.message_id !== session.promptMessageId) {
+      && message.reply_to_message
+      && message.reply_to_message.message_id !== session.promptMessageId) {
       return;
     }
 
