@@ -54,6 +54,7 @@ class FakeTelegramBot implements TelegramBotApi {
 const chatId = '-100123456';
 const userId = 112233;
 const eventId = '8039e6de-b47c-4c6e-8507-b128e1739e6c';
+const nextEventId = '4dcc9d0e-c67f-4225-a8d8-0115566fd8b1';
 const now = new Date('2026-09-22T09:00:00.000Z');
 
 const click: AcceptedCallClick = {
@@ -129,6 +130,7 @@ test('group prompts force a reply without an untargeted selective flag', async (
     force_reply: true,
     input_field_placeholder: '+7 978 123-45-67',
   });
+  assert.match(phonePrompt.text, /\/cancel/);
 
   await conversation.handleUpdate(textUpdate(
     2,
@@ -137,6 +139,34 @@ test('group prompts force a reply without an untargeted selective flag', async (
     'supergroup',
   ));
   assert.match(bot.sent.at(-1)?.text ?? '', /Откуда забрать пациента/);
+});
+
+test('/cancel releases the active form so the operator can start a new one', async () => {
+  const bot = new FakeTelegramBot();
+  const conversation = new MedtaxiConversation(bot, { notificationChatId: chatId, now: () => now });
+
+  await conversation.notifyCallClick(click);
+  await conversation.handleUpdate(callbackUpdate(
+    1,
+    'start-first',
+    `medtax:start:${eventId}`,
+    bot.sent[0].message,
+  ));
+  await conversation.handleUpdate(textUpdate(2, '/cancel'));
+  assert.match(bot.sent.at(-1)?.text ?? '', /Заполнение формы отменено/);
+
+  await conversation.notifyCallClick({ ...click, eventId: nextEventId });
+  const nextNotification = bot.sent.at(-1)?.message;
+  assert.ok(nextNotification);
+  await conversation.handleUpdate(callbackUpdate(
+    3,
+    'start-next',
+    `medtax:start:${nextEventId}`,
+    nextNotification,
+  ));
+
+  assert.match(bot.answers.at(-1)?.options?.text ?? '', /Форму заполняет/);
+  assert.match(bot.sent.at(-1)?.text ?? '', /1\/7\. Введите номер телефона клиента/);
 });
 
 test('walks through the form, validates input and renders a confirmed card', async () => {

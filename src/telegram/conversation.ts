@@ -67,6 +67,7 @@ const CANCEL_CALLBACK = 'medtax:cancel';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
 const MAX_COMPLETED_EVENTS = 5_000;
+const CANCEL_HINT = 'Для отмены заполнения отправьте /cancel.';
 
 const escapeHtml = (value: string): string => value
   .replace(/&/g, '&amp;')
@@ -268,13 +269,17 @@ export class MedtaxiConversation {
       return;
     }
 
+    if (command === '/start' || command === '/help') {
+      await this.bot.sendMessage(
+        message.chat.id,
+        session
+          ? `Ответьте на последний вопрос бота или завершите текущую форму командой /cancel.`
+          : 'После разговора с клиентом нажмите «Оформить заявку» под уведомлением о звонке.',
+      );
+      return;
+    }
+
     if (!session) {
-      if (command === '/start' || command === '/help') {
-        await this.bot.sendMessage(
-          message.chat.id,
-          'После разговора с клиентом нажмите «Оформить заявку» под уведомлением о звонке.',
-        );
-      }
       return;
     }
 
@@ -440,7 +445,7 @@ export class MedtaxiConversation {
   }
 
   private async sendPrompt(session: ConversationSession, text: string, placeholder: string): Promise<void> {
-    const message = await this.bot.sendMessage(session.chatId, text, {
+    const message = await this.bot.sendMessage(session.chatId, `${text}\n\n${CANCEL_HINT}`, {
       reply_markup: forceReply(placeholder),
     });
     session.promptMessageId = message.message_id;
@@ -453,10 +458,13 @@ export class MedtaxiConversation {
       `${prefix ? `${prefix}\n\n` : ''}6/7. Пациент лежачий или сидячий?`,
       {
         reply_markup: {
-          inline_keyboard: [[
-            { text: '🛏 Лежачий', callback_data: `${POSITION_PREFIX}lying` },
-            { text: '🪑 Сидячий', callback_data: `${POSITION_PREFIX}sitting` },
-          ]],
+          inline_keyboard: [
+            [
+              { text: '🛏 Лежачий', callback_data: `${POSITION_PREFIX}lying` },
+              { text: '🪑 Сидячий', callback_data: `${POSITION_PREFIX}sitting` },
+            ],
+            [{ text: '❌ Отменить заявку', callback_data: CANCEL_CALLBACK }],
+          ],
         },
       },
     );
