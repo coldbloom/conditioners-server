@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --clear src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test -r ts-node/register src/call-clicks/*.test.ts src/telegram/*.test.ts",
+    "telegram:set-webhook": "ts-node src/telegram/register-webhook.ts",
     "build": "tsc",
     "start": "node build/index.js",
     "start:prod": "pm2 start build/index.js --name server"

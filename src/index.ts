@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config';
 import { telegramSendMessage } from "./telegram-send-message";
+import { createCallClicksRouter } from './call-clicks/router';
+import { TelegramClient } from './telegram/client';
+import { MedtaxiConversation } from './telegram/conversation';
+import { createTelegramWebhookRouter, parseOperatorIds } from './telegram/webhook-router';
 
 export interface Request {
   phone: string;
@@ -11,10 +15,31 @@ export interface Request {
 
 const app = express();
 
+const medtaxiTelegramToken = process.env.FREEZE_MASTER_TELEGRAM_TOKEN;
+const medtaxiTelegramChatId = process.env.FREEZE_MASTER_CHAT_ID;
+const medtaxiBot = medtaxiTelegramToken && medtaxiTelegramChatId
+  ? new MedtaxiConversation(new TelegramClient(medtaxiTelegramToken), {
+    notificationChatId: medtaxiTelegramChatId,
+  })
+  : undefined;
+
+// У кликов и Telegram webhook собственные parser/ограничения.
+// Старый /api/feedback ниже продолжает работать через общие middleware.
+app.use('/api/call-clicks', createCallClicksRouter({
+  onAccepted: medtaxiBot ? (event) => medtaxiBot.notifyCallClick(event) : undefined,
+}));
+app.use('/api/telegram/webhook', createTelegramWebhookRouter({
+  secret: process.env.TELEGRAM_WEBHOOK_SECRET,
+  allowedChatId: medtaxiTelegramChatId,
+  allowedOperatorIds: parseOperatorIds(process.env.TELEGRAM_OPERATOR_IDS),
+  onUpdate: medtaxiBot ? (update) => medtaxiBot.handleUpdate(update) : undefined,
+}));
+
 const allowedOrigins = [
   process.env.FREEZE_MASTER,
-  process.env.CLIENT_URL,
+  process.env.PARTNER_URL,
   process.env.MEDTAXI_URL,
+  'http://localhost:3077',
 ].filter((origin): origin is string => Boolean(origin));
 
 app.use(cors({
@@ -44,21 +69,21 @@ app.post('/api/feedback', async (req: any, res: any) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
-    if (origin === process.env.FREEZE_MASTER) {
+    if (origin === process.env.FREEZE_MASTER) { // split161
       console.log('[feedback] routing → FREEZE_MASTER');
       await telegramSendMessage({
         formData: { phone },
         telegramToken: process.env.FREEZE_MASTER_TELEGRAM_TOKEN as string,
         telegramChatId: process.env.FREEZE_MASTER_CHAT_ID as string,
       });
-    } else if (origin === process.env.CLIENT_URL) {
-      console.log('[feedback] routing → CLIENT_URL');
+    } else if (origin === process.env.PARTNER_URL) { // ледяной партнер
+      console.log('[feedback] routing → Ледяной партнер');
       await telegramSendMessage({
         formData: { phone },
-        telegramToken: process.env.TELEGRAM_TOKEN as string,
-        telegramChatId: process.env.TELEGRAM_GROUP_CHAT_ID as string,
+        telegramToken: process.env.PARTNER_TELEGRAM_TOKEN as string,
+        telegramChatId: process.env.PARTNER_TELEGRAM_GROUP_CHAT_ID as string,
       });
-    } else if (origin === process.env.MEDTAXI_URL) {
+    } else if (origin === process.env.MEDTAXI_URL || origin === 'http://localhost:3077') { // https://medtaxi-evp.ru
       console.log('[feedback] routing → MEDTAXI_URL');
       const { name, message } = req.body;
 
@@ -93,10 +118,11 @@ app.listen(config.PORT, () => {
 
   const requiredEnvVars = [
     'FREEZE_MASTER',
-    'CLIENT_URL',
+    'PARTNER_URL',
     'MEDTAXI_URL',
     'FREEZE_MASTER_TELEGRAM_TOKEN',
     'FREEZE_MASTER_CHAT_ID',
+    'TELEGRAM_WEBHOOK_SECRET',
     'TELEGRAM_TOKEN',
     'TELEGRAM_GROUP_CHAT_ID',
   ];
